@@ -26,10 +26,19 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
-@click.argument("filename")
-def ctocpp(filename):
-    parse_and_convert_file(filename)
-    pass
+@click.argument("filename", type=click.Path(exists=True))
+@click.option("--is-list", "-l", is_flag=True, default=False,
+              help="Instead of converting the given file, it is assumed to "
+              + "contain the list of filenames to process.")
+def ctocpp(filename, is_list):
+    if is_list:
+        with open(filename, "r") as f:
+            filenames = [line.rstrip() for line in f]
+        for name in filenames:
+            parse_and_convert_file(name)
+    else:
+        parse_and_convert_file(filename)
+    return
 
 # # Handle the program arguments.
 # parser = argparse.ArgumentParser(
@@ -42,12 +51,13 @@ def parse_and_convert_file(filename):
     inside_c_comment = False
     comment_style = '//'
     comment_indent = 0
+    doxygen_comment_style = "//!"
     output = ""
 
     with open(filename, "r") as f:
         print("processing \"{}\"".format(f.name))
         for line in f:
-            Start by dropping trailing whitespace from the input.
+            # Start by dropping trailing whitespace from the input.
             line = line.rstrip()
 
             out_line = ''
@@ -101,11 +111,11 @@ def parse_and_convert_file(filename):
                             if k < len(line) and (line[k] == '*' or line[k] == '!'):
                                 if (k + 1) >= len(line) or line[k + 1] != '*':
                                     # Start of Doxygen comment.
-                                    comment_style = '///'
+                                    comment_style = doxygen_comment_style
                                     k += 1
                                     if k < len(line) and line[k] == '<':
                                         # Start of Doxygen after-member comment.
-                                        comment_style = '///<'
+                                        comment_style = doxygen_comment_style + "<"
                                         k += 1
                             out_line += comment_style
                             inside_indentation = False
